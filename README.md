@@ -19,9 +19,7 @@ filters:
 ## Allocate your infrastructure with Terraform. 
 1. Copy all *.tf into your project
 2. Change from the default apkupdate-template in [variable.tf](variable.tf) for both app and subdomain
-3. NOTE: All apps are under *.verxid.site
-
-4. Then in [main.tf](main.tf), update apkupdate-template-deployment in the following
+3. Then in [main.tf](main.tf), update apkupdate-template-deployment in the following
 ```yml
 terraform {
   cloud {
