@@ -1,0 +1,71 @@
+version: 2.1
+orbs:
+  node: circleci/node@5.0.2
+  aws-s3: circleci/aws-s3@3.0.0
+  slack: circleci/slack@4.10.1
+  android: circleci/android@2.1.2
+jobs:
+  release-build:
+    executor:
+      name: android/android-machine
+      # resource-class: medium # enum ("medium" "large" "xlarge" "2xlarge")
+      tag: 2022.08.1
+    steps:
+      - checkout
+      - android/restore-gradle-cache
+      - android/restore-build-cache
+      - run:
+          name: Assemble release build
+          command: |
+            ./gradlew assembleRelease
+      - persist_to_workspace:
+          root: .
+          paths:
+            - app/build/outputs/apk/release
+            - update-changelog.json
+  deploys3:
+    executor:
+      name: node/default
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - aws-s3/copy:
+          arguments: '--recursive'
+          from: ./app/build/outputs/apk/release
+          to: "s3://$S3_BUCKET"
+      - aws-s3/copy:
+          from: update-changelog.json
+          to: "s3://$S3_BUCKET"
+      - run: echo "Successfully deployed to cloudfront"
+workflows:
+  build-and-deploy:
+    jobs:
+      - release-build:
+          context: slack-secrets
+          post-steps:
+            - slack/notify:
+              event: fail
+              template: basic_fail_1
+            - slack/notify:
+              event: pass
+              template: success_tagged_deploy_1
+          filters:
+            branches:
+              only:
+                - main
+      - deploys3:
+          context: slack-secrets
+          post-steps:
+            - slack/notify:
+              event: fail
+              template: basic_fail_1
+            - slack/notify:
+              event: pass
+              template: success_tagged_deploy_1
+          requires:
+            - release-build
+          filters:
+            branches:
+              only:
+                - main
